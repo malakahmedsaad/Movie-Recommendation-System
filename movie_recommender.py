@@ -1,7 +1,7 @@
 import pandas as pd
 import streamlit as st
 
-movies_df = pd.read_csv('C:/Users/mohamedm/Downloads/movie_recommendations.csv')
+movies_df = pd.read_csv('movie_recommendations.csv')
 
 # Step 2: Streamlit user interface
 st.title("Movies Recommendation System 🎬")
