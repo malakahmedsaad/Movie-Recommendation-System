@@ -1,53 +1,41 @@
 import pandas as pd
-import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
+import streamlit as st
 
-# Load the ratings data
-ratings = pd.read_csv('Data/u.data', sep='\t', header=None, names=['userId', 'movieId', 'rating', 'timestamp'])
+movies_df = pd.read_csv('C:/Users/mohamedm/Downloads/movie_recommendations.csv')
 
-# Create a user-movie matrix
-user_movie_matrix = ratings.pivot(index='userId', columns='movieId', values='rating')
-user_movie_matrix = user_movie_matrix.fillna(0)  # Fill NaN values with 0
+# Step 2: Streamlit user interface
+st.title("Movies Recommendation System 🎬")
+st.write("Select a genre to get movie recommendations!")
 
-# Compute user similarity matrix using cosine similarity
-user_similarity = cosine_similarity(user_movie_matrix)
-user_similarity = pd.DataFrame(user_similarity, index=user_movie_matrix.index, columns=user_movie_matrix.index)
-
-
-def get_recommendations(user_id, user_similarity, ratings_matrix, top_n=10):
-    if user_id not in ratings_matrix.index:
-        raise ValueError("User ID not found in ratings matrix.")
-
-    # Get similar users
-    similar_users = user_similarity.loc[user_id]
-
-    # Predict ratings for the user
-    user_ratings = ratings_matrix.loc[user_id]
-    weighted_sum = np.dot(similar_users, ratings_matrix.fillna(0))
-    similarity_sum = np.sum(similar_users)
-
-    # Avoid division by zero
-    predicted_ratings = weighted_sum / (similarity_sum if similarity_sum != 0 else 1)
-
-    # Convert predicted_ratings to a pandas Series
-    predicted_ratings = pd.Series(predicted_ratings, index=ratings_matrix.columns)
-
-    # Get the top_n movie recommendations
-    unrated_movies = user_ratings[user_ratings == 0].index
-    recommendations = []
-    for movie in unrated_movies:
-        if movie in predicted_ratings.index:
-            recommendations.append((movie, predicted_ratings[movie]))
-
-    recommendations.sort(key=lambda x: x[1], reverse=True)
-
-    return recommendations[:top_n]
+# Step 3: Display available genres for selection
+unique_genres = movies_df['Genres'].dropna().unique()  # Remove NaN values if present
+unique_genres = [genre for genre in unique_genres if isinstance(genre, str)]
+selected_genre = st.selectbox("Choose a genre", unique_genres)
 
 
-# Example usage
-user_id = 1  # Example user ID
-top_recommendations = get_recommendations(user_id, user_similarity, user_movie_matrix, top_n=10)
+def get_recommendations(genre, movies, top_n=3):
+    # Filter movies based on the selected genre
+    genre_movies = movies[movies['Genres'].str.contains(genre, case=False, na=False)]
 
-print(f"\nTop Recommendations for User {user_id}:")
-for movie_id, rating in top_recommendations:
-    print(f"Movie ID: {movie_id}, Predicted Rating: {rating:.2f}")
+    # Sort the movies by IMDb rating (descending order)
+    genre_movies_sorted = genre_movies.sort_values(by='IMDb Rating', ascending=False)
+
+    # Select the top N movies
+    top_movies = genre_movies_sorted[['Title','URL', 'IMDb Rating', 'Year', 'Genres']].head(top_n)
+
+    return top_movies
+
+
+# Step 4: Get recommendations when the user selects a genre
+if st.button("Get Recommendations"):
+    top_recommendations = get_recommendations(selected_genre, movies_df)
+
+    if top_recommendations.empty:
+        st.write(f"No movies found for the genre '{selected_genre}'. Please try another genre.")
+    else:
+        st.write(f"\nTop {len(top_recommendations)} Movies in the '{selected_genre}' genre:")
+        for index, row in top_recommendations.iterrows():
+            st.write(f"**{row['Title']}** ({row['Year']}) - IMDb Rating: {row['IMDb Rating']}")
+            st.write(f"Genres: {row['Genres']}")
+            st.write(f"URL: [Link to IMDb]({row['URL']})")
+            st.write("---")
